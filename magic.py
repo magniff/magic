@@ -34,7 +34,7 @@ class _BuilderFabric:
     @classmethod
     def build_klass(cls, *args, **kwargs):
         klass = DEFAULT_BUILDER(*args, **kwargs)
-
+        print(klass)
         return (
             cls._find_type_in_bases(klass)
               and
@@ -58,6 +58,18 @@ class _Builtins:
         return cls.__fabric__.build_klass
 
     @classmethod
+    def _get_new_import(cls, custom_builtins):
+
+        def new_import(name, _globals, *args, **kwargs):
+            _globals['__builtins__'] = custom_builtins
+
+            return cls.__bi_copy__['__import__'](
+                name, _globals, *args, **kwargs
+            )
+
+        return new_import
+
+    @classmethod
     def init(cls, builtins):
         cls.__bi_copy__ = builtins.copy()
         cls._bi = builtins
@@ -65,6 +77,8 @@ class _Builtins:
     @classmethod
     def enable(cls, meta_hook):
         cls._bi['__build_class__'] = cls._get_new_builder()
+        cls._bi['__import__'] = cls._get_new_import(cls._bi)
+
         cls.__fabric__.META_HOOK = meta_hook
 
     @classmethod
