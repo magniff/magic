@@ -1,35 +1,28 @@
+from functools import partial
 DEFAULT_BUILDER = __build_class__
 
 
-class BuilderFabric:
-    
-    PIPELINE = ['new',]
-    
-    
+class _BuilderFabric:
+
+    PIPELINE = ('new',)
+    META_HOOK = None
+
     @classmethod
     def _find_type_in_bases(cls, klass):
         bases = klass.__bases__
+        return type in bases or any(map(cls._find_type_in_bases, bases))
 
-        if type in bases:
-            return True
-        
-        for subklass in bases:
-            cls._find_type_in_bases(subklass)
-    
     @classmethod
-    def _prepare_new(cls, klass):
-        klass_new = klass.__new__
+    def _prepare_new(cls, metaclass):
+        original_new_method = partial(metaclass.__new__, metaclass)
 
-        def new_extension(cls, name, bases, attrs, *args, **kwargs):
+        def hacked_new_method(mcls, name, bases, attrs, *args, **kwargs):
+            return cls.META_HOOK(
+                name, bases, attrs, original_new_method, *args, **kwargs
+            )
 
-            # ---------------
-            print('This is metahack! Klass %s.' % klass.__name__)
-            # ---------------
+        metaclass.__new__ = hacked_new_method
 
-            return klass_new(klass, name, bases, attrs, *args, **kwargs)
-
-        klass.__new__ = new_extension
-    
     @classmethod
     def _prepare_metaclass(cls, klass, *args, **kwargs):
 
@@ -37,11 +30,10 @@ class BuilderFabric:
             getattr(cls, '_prepare_{stage}'.format(stage=stage))(klass)
 
         return klass
-    
+
     @classmethod
     def build_klass(cls, *args, **kwargs):
         klass = DEFAULT_BUILDER(*args, **kwargs)
-        print(klass.__name__)
 
         return (
             cls._find_type_in_bases(klass)
@@ -51,29 +43,42 @@ class BuilderFabric:
             klass
         )
 
-class Builtins:
 
-    metaclass = None
+class _Builtins:
+
+    __bi_copy__ = None
+    __fabric__ = _BuilderFabric
 
     @classmethod
     def __getitem__(cls, item_name):
         return cls._bi.get(item_name)
-            
+
     @classmethod
     def _get_new_builder(cls):
-        return BuilderFabric.build_klass
+        return cls.__fabric__.build_klass
 
     @classmethod
     def init(cls, builtins):
+        cls.__bi_copy__ = builtins.copy()
         cls._bi = builtins
 
     @classmethod
-    def enable(cls):
+    def enable(cls, meta_hook):
         cls._bi['__build_class__'] = cls._get_new_builder()
-    
+        cls.__fabric__.META_HOOK = meta_hook
 
-Builtins.init(__builtins__)
+    @classmethod
+    def disable(cls):
+        cls._bi.update(cls.__bi_copy__)
 
 
-def enable():
-    Builtins.enable()
+class Neverland:
+    def __init__(self, meta_hook):
+        self.meta_hook = meta_hook
+
+    def __enter__(self):
+        _Builtins.init(__builtins__)
+        _Builtins.enable(meta_hook=self.meta_hook)
+
+    def __exit__(self, klass, value, tb):
+        _Builtins.disable()
