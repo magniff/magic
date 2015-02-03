@@ -1,4 +1,7 @@
-class _Context:
+import sys
+
+
+class _ContextInternal:
 
     def __init__(self, builtins_module):
         self.builtins_backup = builtins_module.__dict__.copy()
@@ -22,10 +25,10 @@ class _Context:
         self.builtins.__dict__.update(self.builtins_backup)
 
 
-class Neverland:
+class _ContextEntry:
 
     import builtins
-    context = _Context(builtins_module=builtins)
+    context = _ContextInternal(builtins_module=builtins)
 
     def __init__(self, klass_builder):
         self.context._register_klass_builder(klass_builder)
@@ -35,3 +38,6 @@ class Neverland:
 
     def __exit__(self, klass, value, tb):
         self.context.disable()
+
+
+sys.modules[__name__] = _ContextEntry

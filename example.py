@@ -1,15 +1,11 @@
 import magic
 
-"CFunctionType"
-
-from ctypes import *
-
 
 def callback(builder, *args, **kwargs):
-    if type in args:
-        print(args[1])
+    _, name, *_ = args
+    print(name)
     return builder(*args, **kwargs)
 
 
-with magic.Neverland(callback):
+with magic(callback):
     from django.db.models import Model
