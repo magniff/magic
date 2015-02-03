@@ -1,14 +1,15 @@
 import magic
 
+"CFunctionType"
 
-def callback(name, bases, attrs, method):
-    print(name)
-    return method(name, bases, attrs)
+from ctypes import *
+
+
+def callback(builder, *args, **kwargs):
+    if type in args:
+        print(args[1])
+    return builder(*args, **kwargs)
 
 
 with magic.Neverland(callback):
-    class Meta(type):
-        pass
-    
-    class A(metaclass=Meta):
-        pass
+    from django.db.models import Model
