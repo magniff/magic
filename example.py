@@ -1,9 +1,14 @@
 import magic
 
 
-def hook(name, bases, attrs, method_new):
-    return method_new(name, bases, attrs)
+def callback(name, bases, attrs, method):
+    print(name)
+    return method(name, bases, attrs)
 
 
-with magic.Neverland(meta_hook=hook):
-    import numbers
+with magic.Neverland(callback):
+    class Meta(type):
+        pass
+    
+    class A(metaclass=Meta):
+        pass

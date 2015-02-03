@@ -1,4 +1,6 @@
-from functools import partial
+import functools
+
+DEFAULT_GLOBALS = globals()
 DEFAULT_BUILDER = __build_class__
 
 
@@ -14,17 +16,20 @@ class _BuilderFabric:
 
     @classmethod
     def _prepare_new(cls, metaclass):
-        original_new_method = partial(metaclass.__new__, metaclass)
+        original_new_method = functools.partial(metaclass.__new__, metaclass)
 
         def hacked_new_method(mcls, name, bases, attrs, *args, **kwargs):
-            return cls.META_HOOK(
-                name, bases, attrs, original_new_method, *args, **kwargs
-            )
+            if cls.META_HOOK is None:
+                return original_new_method(name, bases, attrs, *args, **kwargs)
+            else:
+                return cls.META_HOOK(
+                    name, bases, attrs, original_new_method, *args, **kwargs
+                )
 
         metaclass.__new__ = hacked_new_method
 
     @classmethod
-    def _prepare_metaclass(cls, klass, *args, **kwargs):
+    def _build_metaclass(cls, klass, *args, **kwargs):
 
         for stage in cls.PIPELINE:
             getattr(cls, '_prepare_{stage}'.format(stage=stage))(klass)
@@ -34,65 +39,56 @@ class _BuilderFabric:
     @classmethod
     def build_klass(cls, *args, **kwargs):
         klass = DEFAULT_BUILDER(*args, **kwargs)
-        print(klass)
-        return (
-            cls._find_type_in_bases(klass)
-              and
-            cls._prepare_metaclass(klass, *args, **kwargs)
-              or
-            klass
-        )
+        if cls._find_type_in_bases(klass):
+            # i.e. this is meta class
+            return cls._build_metaclass(klass, *args, **kwargs)
+        else:
+            return klass
 
 
-class _Builtins:
+class _Context:
 
-    __bi_copy__ = None
-    __fabric__ = _BuilderFabric
+    __fabric_klass__ = _BuilderFabric
 
-    @classmethod
-    def __getitem__(cls, item_name):
-        return cls._bi.get(item_name)
+    def __init__(self, builtins_module):
+        self.builtins_backup = builtins_module.__dict__.copy()
+        self.builtins = builtins_module
 
-    @classmethod
-    def _get_new_builder(cls):
-        return cls.__fabric__.build_klass
+    def _get_new_builder(self):
+        return self.__fabric_klass__.build_klass
 
-    @classmethod
-    def _get_new_import(cls, custom_builtins):
+    def _get_new_import(self, custom_builtins):
 
-        def new_import(name, _globals, *args, **kwargs):
+        def new_import(name, _globals=DEFAULT_GLOBALS.copy(), *args, **kwargs):
             _globals['__builtins__'] = custom_builtins
 
-            return cls.__bi_copy__['__import__'](
+            return self.builtins_backup['__import__'](
                 name, _globals, *args, **kwargs
             )
 
         return new_import
 
-    @classmethod
-    def init(cls, builtins):
-        cls.__bi_copy__ = builtins.copy()
-        cls._bi = builtins
+    def enable(self, meta_hook):
+        self.__fabric_klass__.META_HOOK = meta_hook
 
-    @classmethod
-    def enable(cls, meta_hook):
-        cls._bi['__build_class__'] = cls._get_new_builder()
-        cls._bi['__import__'] = cls._get_new_import(cls._bi)
+        self.builtins.__build_class__ = self._get_new_builder()
+        self.builtins.__import__ = self._get_new_import(self.builtins)
 
-        cls.__fabric__.META_HOOK = meta_hook
-
-    @classmethod
-    def disable(cls):
-        cls._bi.update(cls.__bi_copy__)
+    def disable(self):
+        self.builtins.__dict__.update(self.builtins_backup)
 
 
 class Neverland:
+
+    __context_handler__ = _Context
+
     def __init__(self, meta_hook):
+        import builtins
+        self.context = self.__context_handler__(builtins_module=builtins)
         self.meta_hook = meta_hook
 
     def __enter__(self):
-        _Builtins.init(__builtins__)
-        _Builtins.enable(meta_hook=self.meta_hook)
+        self.context.enable(meta_hook=self.meta_hook)
 
     def __exit__(self, klass, value, tb):
-        _Builtins.disable()
+        self.context.disable()
