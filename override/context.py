@@ -1,6 +1,3 @@
-import sys
-
-
 class _ContextInternal:
 
     def __init__(self, builtins_module):
@@ -38,6 +35,3 @@ class _ContextEntry:
 
     def __exit__(self, klass, value, tb):
         self.context.disable()
-
-
-sys.modules[__name__] = _ContextEntry
