@@ -1,34 +1,30 @@
-from override import Builder, context
+from magic import Builder, wonderland
 
 
 def my_callback(name, bases, attrs):
-
-    def __new__(cls, *args, **kwargs):
-        _, parent, *_ = cls.__mro__
-
-        if cls.instance is None:
-            cls.instance = parent.__new__(parent, *args, **kwargs)
-
-        return cls.instance
-
-    attrs['instance'] = None
-    attrs['__new__'] = __new__
+    print('from callback', name)
 
 
 Builder.register_metaclass_callback(my_callback)
 
 
-with context(Builder):
-    class A:
-        pass
+with wonderland(Builder):
+    class Meta(type):
+        def __new__(cls, name, bases, attrs):
+            print('from basic!', name)
+            return super().__new__(cls, name, bases, attrs)
+    
+    class Hueta(Meta):
+        def __new__(cls, name, bases, attrs):
+            print('from extended!', name)
+            return super().__new__(cls, name, bases, attrs)
 
+    
+    class A(metaclass=Hueta):
+        pass
+    
     class B(A):
         pass
 
-    class C(B, A):
+    class C(B):
         pass
-
-
-assert C() is A()
-assert A() is A()
-assert A() is B()
