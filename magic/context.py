@@ -1,8 +1,15 @@
+import sys
+import imp
+
+
 class _ContextInternal:
 
     def __init__(self, builtins_module):
         self.builtins_backup = builtins_module.__dict__.copy()
         self.builtins = builtins_module
+
+        self.modules_preloaded = sys.modules.keys()
+        self.modules_loaded = set()
 
     def _register_klass_builder(self, klass_builder):
         self.klass_builder = klass_builder
@@ -15,8 +22,26 @@ class _ContextInternal:
 
         return new_builder
 
+    def _get_new_importer(self):
+        default_importer = self.builtins_backup['__import__']
+
+        def new_importer(module_name, *args, **kwargs):
+            import_result = default_importer(module_name, *args, **kwargs)
+
+            do_reload = (
+                module_name in self.modules_preloaded and
+                module_name not in self.modules_loaded
+            )
+
+            self.modules_loaded.add(module_name)
+
+            return do_reload and imp.reload(import_result) or import_result
+
+        return new_importer
+
     def enable(self):
         self.builtins.__build_class__ = self._get_new_builder()
+        self.builtins.__import__ = self._get_new_importer()
 
     def disable(self):
         self.builtins.__dict__.update(self.builtins_backup)
