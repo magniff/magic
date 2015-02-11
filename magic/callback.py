@@ -38,7 +38,6 @@ class Builder:
     @classmethod
     def _build_klass(cls, default_builder, *args, **kwargs):
         _, _, *bases = args
-
         if any(base.__class__ == type for base in bases):
             if 'metaclass' not in kwargs:
                 kwargs['metaclass'] = cls.meta_meta

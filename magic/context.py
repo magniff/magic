@@ -4,6 +4,8 @@ import imp
 
 class _ContextInternal:
 
+    RELOADER_SKIP = ('builtins',)
+
     def __init__(self, builtins_module):
         self.builtins_backup = builtins_module.__dict__.copy()
         self.builtins = builtins_module
@@ -26,16 +28,18 @@ class _ContextInternal:
         default_importer = self.builtins_backup['__import__']
 
         def new_importer(module_name, *args, **kwargs):
-            import_result = default_importer(module_name, *args, **kwargs)
-
             do_reload = (
                 module_name in self.modules_preloaded and
-                module_name not in self.modules_loaded
+                module_name not in self.modules_loaded and
+                module_name not in self.RELOADER_SKIP
             )
 
             self.modules_loaded.add(module_name)
 
-            return do_reload and imp.reload(import_result) or import_result
+            return (
+                do_reload and imp.reload(sys.modules[module_name]) or
+                default_importer(module_name, *args, **kwargs)
+            )
 
         return new_importer
 
