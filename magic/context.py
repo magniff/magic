@@ -4,7 +4,7 @@ import imp
 
 class _ContextInternal:
 
-    RELOADER_SKIP = ('builtins',)
+    RELOADER_SKIP = ('builtins', '_io')
 
     def __init__(self, builtins_module):
         self.builtins_backup = builtins_module.__dict__.copy()
@@ -35,11 +35,15 @@ class _ContextInternal:
             )
 
             self.modules_loaded.add(module_name)
+            if do_reload:
+                try:
+                    module = imp.reload(sys.modules[module_name])
+                except ImportError:
+                    module = sys.modules[module_name]
+            else:
+                module = default_importer(module_name, *args, **kwargs)
 
-            return (
-                do_reload and imp.reload(sys.modules[module_name]) or
-                default_importer(module_name, *args, **kwargs)
-            )
+            return module
 
         return new_importer
 

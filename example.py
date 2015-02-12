@@ -1,12 +1,10 @@
-from magic import Builder, wonderland
+from magic import wonderland
 
 
-def my_callback(name, bases, attrs):
-    pass
+def callback(builder, *args, **kwargs):
+    klass = builder(*args, **kwargs)
+    return klass
 
 
-Builder.register_metaclass_callback(my_callback)
-
-
-with wonderland(Builder):
-    import re
+with wonderland(callback):
+    from django.db.models import *
