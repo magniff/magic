@@ -2,9 +2,10 @@ from magic import wonderland
 
 
 def callback(builder, *args, **kwargs):
-    klass = builder(*args, **kwargs)
-    return klass
+    func, name, *bases = args
+    print('Current class is', name)
+    return builder(*args, **kwargs)
 
 
 with wonderland(callback):
-    from django.db.models import *
+    class A: pass
