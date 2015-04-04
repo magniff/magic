@@ -14,5 +14,4 @@ def callback(builder, *args, **kwargs):
 
 with wonderland(callback):
     class MyClass:
-        class __init__:
-            pass
+        pass
