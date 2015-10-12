@@ -1,4 +1,2 @@
 # magic
-Simple __build_class__ related poc.
-First python setup.py develop.
-You are ready to run examples.
+We all know that the "class" statement is actually evaluatable. This repo is a simple demo, that shows how to use '__build_class__' function to hack the class building process.
